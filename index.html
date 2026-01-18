@@ -3,30 +3,23 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Indeed Organic Dashboard</title>
-  <!-- Tailwind CSS -->
+  <title>Indeed Organic Dashboard Pro</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  
-  <!-- React & Dependencies -->
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <!-- Rechartsに必要な依存関係 -->
   <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
   <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
-  
-  <!-- CSV Parser -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-  <!-- Babel for JSX -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
     body { font-family: 'Inter', sans-serif; }
-    .animate-fade-in { animation: fadeIn 0.5s ease-out forwards; }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
+    @media print {
+      .no-print { display: none !important; }
+      .card { border: 1px solid #eee !important; box-shadow: none !important; }
     }
+    .animate-fade-in { animation: fadeIn 0.4s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
   </style>
 </head>
 <body class="bg-gray-50 text-slate-900">
@@ -34,268 +27,222 @@
 
   <script type="text/babel">
     const { useState, useMemo, useEffect } = React;
+    const { 
+      BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+      LineChart, Line, AreaChart, Area, ComposedChart 
+    } = window.Recharts;
 
-    // React互換のインラインSVGアイコンコンポーネント
     const Icon = ({ name, size = 20, className = "" }) => {
       const paths = {
         trending: <path d="m22 7-8.5 8.5-5-5L2 17M16 7h6v6" />,
-        users: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>,
-        mouse: <><path d="m15 15 3 3-3 3"/><path d="m10 10 3 3-3 3"/><path d="M2 2l20 20"/></>, // Simple fallback
-        cursor: <><path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="m13 13 6 6"/></>,
+        users: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></>,
         eye: <><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></>,
-        download: <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></>,
         dashboard: <><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></>,
-        file: <><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></>,
-        alert: <><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></>,
-        upload: <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></>,
-        check: <polyline points="20 6 9 17 4 12" />,
-        refresh: <><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></>
+        file: <><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/></>,
+        settings: <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" /></>,
+        check: <polyline points="20 6 9 17 4 12" />
       };
-
       return (
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width={size}
-          height={size}
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className={className}
-        >
+        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
           {paths[name] || null}
         </svg>
       );
     };
 
     const App = () => {
+      const [gasUrl, setGasUrl] = useState(localStorage.getItem('gas_url') || '');
       const [rawData, setRawData] = useState([]);
-      const [isLoaded, setIsLoaded] = useState(false);
-      const [isChartsReady, setIsChartsReady] = useState(false);
+      const [activeTab, setActiveTab] = useState('dashboard');
+      const [loading, setLoading] = useState(false);
+      const [status, setStatus] = useState('');
 
+      // 起動時にGASからデータを取得
       useEffect(() => {
-        if (window.Recharts) {
-          setIsChartsReady(true);
-        }
+        if (gasUrl) fetchData();
       }, []);
+
+      const fetchData = async () => {
+        if (!gasUrl) return;
+        setLoading(true);
+        try {
+          const res = await fetch(gasUrl);
+          const data = await res.json();
+          setRawData(data);
+          setStatus('データの取得が完了しました。');
+        } catch (e) {
+          setStatus('データ取得エラー: URLを確認してください。');
+        }
+        setLoading(false);
+      };
 
       const handleFileUpload = (e) => {
         const file = e.target.files[0];
         if (!file) return;
-
+        setLoading(true);
         Papa.parse(file, {
           header: true,
           skipEmptyLines: true,
-          complete: (results) => {
+          complete: async (results) => {
             const formatted = results.data.map(row => ({
-              title: row['求人'] || '不明な求人',
+              title: row['求人'] || '',
               date: row['作成日'] || '',
               impressions: parseInt(row['表示回数']) || 0,
               clicks: parseInt(row['クリック数']) || 0,
               startApps: parseInt(row['応募開始数']) || 0,
-              conversions: parseInt(row['応募数']) || 0,
-              ctr: parseFloat(row['クリック率（CTR）']) || 0,
+              startRate: row['応募開始率 (ASR)'] || '0%',
+              conversions: parseInt(row['応募数']) || 0
             }));
-            setRawData(formatted);
-            setIsLoaded(true);
+
+            if (gasUrl) {
+              try {
+                await fetch(gasUrl, {
+                  method: 'POST',
+                  body: JSON.stringify(formatted)
+                });
+                fetchData();
+              } catch (e) {
+                setStatus('保存に失敗しました。');
+              }
+            } else {
+              setRawData(prev => [...prev, ...formatted]);
+              setLoading(false);
+            }
           }
         });
       };
 
-      const stats = useMemo(() => {
-        const totalImp = rawData.reduce((acc, curr) => acc + curr.impressions, 0);
-        const totalClick = rawData.reduce((acc, curr) => acc + curr.clicks, 0);
-        const totalStart = rawData.reduce((acc, curr) => acc + curr.startApps, 0);
-        const totalConv = rawData.reduce((acc, curr) => acc + curr.conversions, 0);
+      const monthlyAnalysis = useMemo(() => {
+        const groups = {};
+        rawData.forEach(d => {
+          const monthMatch = d.date.match(/(\d{4})[年/](\d{1,2})/);
+          if (!monthMatch) return;
+          const month = `${monthMatch[1]}/${monthMatch[2].padStart(2, '0')}`;
+          if (!groups[month]) groups[month] = { month, imp: 0, clk: 0, conv: 0 };
+          groups[month].imp += d.impressions;
+          groups[month].clk += d.clicks;
+          groups[month].conv += d.conversions;
+        });
         
-        const avgCtr = totalImp > 0 ? (totalClick / totalImp) * 100 : 0;
-        const avgAsr = totalClick > 0 ? (totalStart / totalClick) * 100 : 0;
-        const avgCvr = totalStart > 0 ? (totalConv / totalStart) * 100 : 0;
+        const sorted = Object.values(groups).sort((a, b) => b.month.localeCompare(a.month));
         
-        return { totalImp, totalClick, totalStart, totalConv, avgCtr, avgAsr, avgCvr };
+        return sorted.map((m, i) => {
+          const prev = sorted[i + 1];
+          if (!prev) return { ...m, diff: null };
+          const diffImp = prev.imp !== 0 ? ((m.imp - prev.imp) / prev.imp * 100).toFixed(1) : 0;
+          const diffConv = prev.conv !== 0 ? ((m.conv - prev.conv) / prev.conv * 100).toFixed(1) : 0;
+          return { ...m, diffImp, diffConv };
+        });
       }, [rawData]);
 
-      if (!isChartsReady) {
-        return <div className="h-screen flex items-center justify-center bg-white text-slate-400">Loading...</div>;
-      }
+      const stats = useMemo(() => {
+        const totalImp = rawData.reduce((acc, curr) => acc + curr.impressions, 0);
+        const totalConv = rawData.reduce((acc, curr) => acc + curr.conversions, 0);
+        return { totalImp, totalConv };
+      }, [rawData]);
 
-      const { 
-        BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-        LineChart, Line, AreaChart, Area, ComposedChart 
-      } = window.Recharts;
+      const saveSettings = () => {
+        localStorage.setItem('gas_url', gasUrl);
+        fetchData();
+        setActiveTab('dashboard');
+      };
 
       return (
         <div className="min-h-screen flex flex-col md:flex-row">
-          {/* Sidebar */}
-          <aside className="w-full md:w-64 bg-slate-900 text-white p-6 flex-shrink-0">
+          <aside className="w-full md:w-64 bg-slate-900 text-white p-6 flex-shrink-0 no-print">
             <div className="flex items-center gap-3 mb-10">
-              <div className="p-2 bg-emerald-500 rounded-lg">
-                <Icon name="trending" size={24} />
-              </div>
-              <h1 className="font-bold text-xl tracking-tight">Indeed Organic</h1>
+              <div className="p-2 bg-emerald-500 rounded-lg"><Icon name="trending" size={24} /></div>
+              <h1 className="font-bold text-xl">Indeed Admin</h1>
             </div>
-            <nav className="space-y-4">
-              <div className="flex items-center gap-3 text-emerald-400 font-semibold p-2 bg-slate-800 rounded-lg shadow-sm">
-                <Icon name="dashboard" size={20} />
-                <span>ダッシュボード</span>
-              </div>
-              <div className="flex items-center gap-3 text-slate-400 p-2 hover:bg-slate-800 rounded-lg cursor-not-allowed transition-colors">
-                <Icon name="file" size={20} />
-                <span>月次レポート</span>
-              </div>
+            <nav className="space-y-2">
+              <button onClick={() => setActiveTab('dashboard')} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${activeTab === 'dashboard' ? 'bg-emerald-600' : 'text-slate-400 hover:bg-slate-800'}`}>
+                <Icon name="dashboard" /> ダッシュボード
+              </button>
+              <button onClick={() => setActiveTab('report')} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${activeTab === 'report' ? 'bg-emerald-600' : 'text-slate-400 hover:bg-slate-800'}`}>
+                <Icon name="file" /> 月次レポート (MoM)
+              </button>
+              <button onClick={() => setActiveTab('settings')} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${activeTab === 'settings' ? 'bg-emerald-600' : 'text-slate-400 hover:bg-slate-800'}`}>
+                <Icon name="settings" /> 設定 (API連携)
+              </button>
             </nav>
-            <div className="mt-auto pt-10 text-[10px] text-slate-500 uppercase tracking-widest font-bold">
-              Agency Edition v1.4
-            </div>
           </aside>
 
-          {/* Main */}
-          <main className="flex-1 p-4 md:p-10 overflow-y-auto bg-gray-50">
-            {!isLoaded ? (
-              <div className="h-full flex flex-col items-center justify-center border-4 border-dashed border-gray-200 rounded-3xl p-10 md:p-20 bg-white shadow-inner animate-fade-in">
-                <div className="bg-emerald-100 p-6 rounded-full mb-6 text-emerald-600">
-                  <Icon name="upload" size={48} />
+          <main className="flex-1 p-4 md:p-10 bg-gray-50 overflow-y-auto">
+            {loading && <div className="fixed inset-0 bg-white/50 flex items-center justify-center z-50">読み込み中...</div>}
+            
+            {activeTab === 'settings' ? (
+              <div className="max-w-xl mx-auto space-y-6 animate-fade-in">
+                <h2 className="text-2xl font-bold">システム設定</h2>
+                <div className="bg-white p-6 rounded-2xl shadow-sm border">
+                  <label className="block text-sm font-bold text-slate-700 mb-2">GAS Web App URL</label>
+                  <input 
+                    type="text" 
+                    value={gasUrl} 
+                    onChange={e => setGasUrl(e.target.value)}
+                    placeholder="https://script.google.com/macros/s/.../exec"
+                    className="w-full p-3 border rounded-xl mb-4 text-sm"
+                  />
+                  <button onClick={saveSettings} className="w-full bg-slate-900 text-white p-3 rounded-xl font-bold">接続を保存</button>
                 </div>
-                <h2 className="text-2xl font-bold text-slate-800 mb-2">CSVファイルをアップロード</h2>
-                <p className="text-slate-500 mb-8 text-center max-w-sm">
-                  Indeedアナリティクスから書き出した<br/>「JobsCampaigns」ファイルを読み込んでください。
-                </p>
-                <label className="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-4 rounded-2xl font-bold cursor-pointer transition-all transform hover:scale-105 shadow-xl flex items-center gap-3 active:scale-95">
-                  <Icon name="download" size={20} />
-                  ファイルを選択する
-                  <input type="file" className="hidden" accept=".csv" onChange={handleFileUpload} />
-                </label>
+              </div>
+            ) : activeTab === 'report' ? (
+              <div className="space-y-8 animate-fade-in">
+                <div className="flex justify-between items-center no-print">
+                   <h2 className="text-2xl font-bold">月次レポート・前月比分析</h2>
+                   <button onClick={() => window.print()} className="bg-emerald-600 text-white px-4 py-2 rounded-xl flex items-center gap-2 font-bold"><Icon name="file" size={16}/>印刷 / PDF保存</button>
+                </div>
+                
+                <div className="grid gap-6">
+                  {monthlyAnalysis.map(m => (
+                    <div key={m.month} className="bg-white p-6 rounded-2xl shadow-sm border card">
+                      <h3 className="text-lg font-bold border-b pb-3 mb-4">{m.month} の実績</h3>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                        <div>
+                          <p className="text-xs text-slate-400 font-bold uppercase">表示回数</p>
+                          <p className="text-xl font-bold">{m.imp.toLocaleString()}</p>
+                          {m.diffImp !== undefined && m.diffImp !== null && <p className={`text-xs font-bold ${parseFloat(m.diffImp) >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>MoM: {m.diffImp >= 0 ? '+' : ''}{m.diffImp}%</p>}
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-400 font-bold uppercase">クリック数</p>
+                          <p className="text-xl font-bold">{m.clk.toLocaleString()}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-400 font-bold uppercase">応募完了数</p>
+                          <p className="text-xl font-bold text-emerald-600">{m.conv.toLocaleString()}</p>
+                          {m.diffConv !== undefined && m.diffConv !== null && <p className={`text-xs font-bold ${parseFloat(m.diffConv) >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>MoM: {m.diffConv >= 0 ? '+' : ''}{m.diffConv}%</p>}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             ) : (
               <div className="space-y-8 animate-fade-in">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
-                  <div>
-                    <h2 className="text-3xl font-bold text-slate-800 tracking-tight">運用状況サマリー</h2>
-                    <p className="text-slate-500 mt-1 flex items-center gap-2 text-sm">
-                      <Icon name="alert" size={14} className="text-blue-500" /> 
-                      無料枠（オーガニック）の最新パフォーマンスを表示中
-                    </p>
-                  </div>
-                  <button onClick={() => window.location.reload()} className="text-slate-400 hover:text-red-500 text-sm font-medium transition-colors flex items-center gap-1">
-                    <Icon name="refresh" size={14} />
-                    別のデータを読み込む
-                  </button>
+                <div className="flex justify-between items-center no-print">
+                   <h2 className="text-2xl font-bold text-slate-800">全体サマリー</h2>
+                   <label className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl cursor-pointer font-bold transition-all shadow-md">
+                     CSVを追加保存
+                     <input type="file" className="hidden" accept=".csv" onChange={handleFileUpload} />
+                   </label>
+                </div>
+                
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                  <div className="bg-white p-6 rounded-2xl border shadow-sm"><p className="text-xs font-bold text-slate-400 uppercase">累計表示</p><p className="text-2xl font-bold">{stats.totalImp.toLocaleString()}</p></div>
+                  <div className="bg-white p-6 rounded-2xl border shadow-sm"><p className="text-xs font-bold text-slate-400 uppercase">累計応募</p><p className="text-2xl font-bold text-emerald-600">{stats.totalConv.toLocaleString()}</p></div>
                 </div>
 
-                {/* KPI Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="text-xs font-bold text-slate-400 uppercase">総表示回数</p>
-                        <h3 className="text-2xl font-bold mt-2 text-slate-800">{stats.totalImp.toLocaleString()}<span className="text-sm ml-1 font-normal text-slate-400">回</span></h3>
-                      </div>
-                      <div className="p-3 rounded-xl bg-slate-500 text-white shadow-lg"><Icon name="eye" size={24} /></div>
-                    </div>
-                  </div>
-                  <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="text-xs font-bold text-slate-400 uppercase">平均クリック率</p>
-                        <h3 className="text-2xl font-bold mt-2 text-slate-800">{stats.avgCtr.toFixed(2)}<span className="text-sm ml-1 font-normal text-slate-400">%</span></h3>
-                        <p className="text-[10px] text-slate-400 mt-1">{stats.totalClick.toLocaleString()} クリック</p>
-                      </div>
-                      <div className="p-3 rounded-xl bg-blue-500 text-white shadow-lg"><Icon name="cursor" size={24} /></div>
-                    </div>
-                  </div>
-                  <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="text-xs font-bold text-slate-400 uppercase">応募開始数</p>
-                        <h3 className="text-2xl font-bold mt-2 text-slate-800">{stats.totalStart.toLocaleString()}<span className="text-sm ml-1 font-normal text-slate-400">件</span></h3>
-                        <p className="text-[10px] text-slate-400 mt-1">開始率: {stats.avgAsr.toFixed(1)}%</p>
-                      </div>
-                      <div className="p-3 rounded-xl bg-indigo-500 text-white shadow-lg"><Icon name="trending" size={24} /></div>
-                    </div>
-                  </div>
-                  <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="text-xs font-bold text-slate-400 uppercase">応募完了数</p>
-                        <h3 className="text-2xl font-bold mt-2 text-slate-800">{stats.totalConv.toLocaleString()}<span className="text-sm ml-1 font-normal text-slate-400">件</span></h3>
-                        <p className="text-[10px] text-slate-400 mt-1">完了率: {stats.avgCvr.toFixed(1)}%</p>
-                      </div>
-                      <div className="p-3 rounded-xl bg-emerald-500 text-white shadow-lg"><Icon name="users" size={24} /></div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Chart Area */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                  <div className="lg:col-span-2 bg-white p-8 rounded-3xl border border-gray-100 shadow-sm">
-                    <h3 className="text-lg font-bold text-slate-800 mb-8">求人票別 パフォーマンス</h3>
-                    <div className="h-[400px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <ComposedChart data={rawData}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                          <XAxis dataKey="title" hide />
-                          <YAxis yAxisId="left" stroke="#94a3b8" fontSize={10} />
-                          <YAxis yAxisId="right" orientation="right" stroke="#10b981" fontSize={10} />
-                          <Tooltip 
-                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
-                          />
-                          <Legend verticalAlign="top" align="right" iconType="circle" />
-                          <Area yAxisId="left" type="monotone" dataKey="impressions" name="表示回数" fill="#f8fafc" stroke="#cbd5e1" />
-                          <Bar yAxisId="left" dataKey="clicks" name="クリック数" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={20} />
-                          <Line yAxisId="right" type="monotone" dataKey="conversions" name="応募数" stroke="#10b981" strokeWidth={3} dot={{ r: 4, fill: "#10b981", strokeWidth: 2 }} />
-                        </ComposedChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-
-                  <div className="bg-emerald-50 p-8 rounded-3xl border border-emerald-100 flex flex-col justify-center">
-                    <Icon name="alert" size={32} className="text-emerald-500 mb-6" />
-                    <h4 className="text-emerald-900 font-bold text-lg mb-4">改善アドバイス</h4>
-                    <div className="space-y-4 text-emerald-800 text-xs md:text-sm leading-relaxed">
-                      <p>
-                        クリック率 <strong>{stats.avgCtr.toFixed(2)}%</strong>。一般的に2%以上が良好な目安です。
-                      </p>
-                      <p>
-                        応募開始からの完了率は <strong>{stats.avgCvr.toFixed(1)}%</strong>。ここが極端に低い場合、Indeed外の自社サイトでの離脱を疑ってください。
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Table Area */}
-                <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden mb-10 transition-all">
-                  <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-slate-50/30">
-                    <h3 className="font-bold text-slate-700">求人別 詳細データ</h3>
-                    <span className="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1 uppercase tracking-wider">
-                      <Icon name="check" size={10} /> {rawData.length} Jobs Active
-                    </span>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs md:text-sm">
-                      <thead className="bg-slate-50/50 text-slate-500 font-bold uppercase">
-                        <tr>
-                          <th className="px-6 py-4">求人タイトル</th>
-                          <th className="px-6 py-4 text-right">表示</th>
-                          <th className="px-6 py-4 text-right">クリック</th>
-                          <th className="px-6 py-4 text-right text-indigo-500">応募開始</th>
-                          <th className="px-6 py-4 text-right text-emerald-600">応募完了</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {rawData.map((row, i) => (
-                          <tr key={i} className="hover:bg-slate-50/80 transition-colors group">
-                            <td className="px-6 py-4 font-semibold text-slate-700 max-w-xs truncate group-hover:text-emerald-600">{row.title}</td>
-                            <td className="px-6 py-4 text-right text-slate-600">{row.impressions.toLocaleString()}</td>
-                            <td className="px-6 py-4 text-right text-slate-600">{row.clicks.toLocaleString()}</td>
-                            <td className="px-6 py-4 text-right text-indigo-400">{row.startApps.toLocaleString()}</td>
-                            <td className="px-6 py-4 text-right font-bold text-emerald-600">{row.conversions.toLocaleString()}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                <div className="bg-white p-6 rounded-2xl border shadow-sm h-80">
+                  <h3 className="font-bold mb-4 text-slate-700">月次トレンド</h3>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={[...monthlyAnalysis].reverse()}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis dataKey="month" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="imp" name="表示回数" fill="#94a3b8" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="conv" name="応募数" fill="#10b981" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
               </div>
             )}
