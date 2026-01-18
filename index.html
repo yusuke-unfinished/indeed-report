@@ -16,7 +16,8 @@
     body { font-family: 'Inter', sans-serif; }
     @media print {
       .no-print { display: none !important; }
-      .card { border: 1px solid #eee !important; box-shadow: none !important; }
+      .card { border: 1px solid #eee !important; box-shadow: none !important; margin-bottom: 20px !important; page-break-inside: avoid; }
+      body { background: white !important; }
     }
     .animate-fade-in { animation: fadeIn 0.4s ease-out; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -28,8 +29,7 @@
   <script type="text/babel">
     const { useState, useMemo, useEffect } = React;
     const { 
-      BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-      LineChart, Line, AreaChart, Area, ComposedChart 
+      BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, ComposedChart 
     } = window.Recharts;
 
     const Icon = ({ name, size = 20, className = "" }) => {
@@ -40,6 +40,7 @@
         dashboard: <><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></>,
         file: <><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/></>,
         settings: <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" /></>,
+        refresh: <><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></>,
         check: <polyline points="20 6 9 17 4 12" />
       };
       return (
@@ -56,10 +57,7 @@
       const [loading, setLoading] = useState(false);
       const [status, setStatus] = useState('');
 
-      // 起動時にGASからデータを取得
-      useEffect(() => {
-        if (gasUrl) fetchData();
-      }, []);
+      useEffect(() => { if (gasUrl) fetchData(); }, []);
 
       const fetchData = async () => {
         if (!gasUrl) return;
@@ -68,10 +66,7 @@
           const res = await fetch(gasUrl);
           const data = await res.json();
           setRawData(data);
-          setStatus('データの取得が完了しました。');
-        } catch (e) {
-          setStatus('データ取得エラー: URLを確認してください。');
-        }
+        } catch (e) { setStatus('データ取得失敗'); }
         setLoading(false);
       };
 
@@ -95,14 +90,9 @@
 
             if (gasUrl) {
               try {
-                await fetch(gasUrl, {
-                  method: 'POST',
-                  body: JSON.stringify(formatted)
-                });
+                await fetch(gasUrl, { method: 'POST', body: JSON.stringify(formatted) });
                 fetchData();
-              } catch (e) {
-                setStatus('保存に失敗しました。');
-              }
+              } catch (e) { setStatus('保存失敗'); setLoading(false); }
             } else {
               setRawData(prev => [...prev, ...formatted]);
               setLoading(false);
@@ -114,30 +104,33 @@
       const monthlyAnalysis = useMemo(() => {
         const groups = {};
         rawData.forEach(d => {
-          const monthMatch = d.date.match(/(\d{4})[年/](\d{1,2})/);
-          if (!monthMatch) return;
-          const month = `${monthMatch[1]}/${monthMatch[2].padStart(2, '0')}`;
-          if (!groups[month]) groups[month] = { month, imp: 0, clk: 0, conv: 0 };
+          const mMatch = d.date.match(/(\d{4})[年/](\d{1,2})/);
+          if (!mMatch) return;
+          const month = `${mMatch[1]}/${mMatch[2].padStart(2, '0')}`;
+          if (!groups[month]) groups[month] = { month, imp: 0, clk: 0, conv: 0, jobs: {} };
+          
           groups[month].imp += d.impressions;
-          groups[month].clk += d.clicks;
+          groups[month].clk += d.clk || d.clicks; // Fix for clk naming
           groups[month].conv += d.conversions;
+
+          // 求人ごとの集計
+          if (!groups[month].jobs[d.title]) {
+            groups[month].jobs[d.title] = { imp: 0, clk: 0, conv: 0 };
+          }
+          groups[month].jobs[d.title].imp += d.impressions;
+          groups[month].jobs[d.title].clk += d.clk || d.clicks;
+          groups[month].jobs[d.title].conv += d.conversions;
         });
         
         const sorted = Object.values(groups).sort((a, b) => b.month.localeCompare(a.month));
-        
         return sorted.map((m, i) => {
           const prev = sorted[i + 1];
-          if (!prev) return { ...m, diff: null };
-          const diffImp = prev.imp !== 0 ? ((m.imp - prev.imp) / prev.imp * 100).toFixed(1) : 0;
-          const diffConv = prev.conv !== 0 ? ((m.conv - prev.conv) / prev.conv * 100).toFixed(1) : 0;
-          return { ...m, diffImp, diffConv };
+          return {
+            ...m,
+            diffImp: prev && prev.imp !== 0 ? ((m.imp - prev.imp) / prev.imp * 100).toFixed(1) : null,
+            diffConv: prev && prev.conv !== 0 ? ((m.conv - prev.conv) / prev.conv * 100).toFixed(1) : null
+          };
         });
-      }, [rawData]);
-
-      const stats = useMemo(() => {
-        const totalImp = rawData.reduce((acc, curr) => acc + curr.impressions, 0);
-        const totalConv = rawData.reduce((acc, curr) => acc + curr.conversions, 0);
-        return { totalImp, totalConv };
       }, [rawData]);
 
       const saveSettings = () => {
@@ -151,95 +144,105 @@
           <aside className="w-full md:w-64 bg-slate-900 text-white p-6 flex-shrink-0 no-print">
             <div className="flex items-center gap-3 mb-10">
               <div className="p-2 bg-emerald-500 rounded-lg"><Icon name="trending" size={24} /></div>
-              <h1 className="font-bold text-xl">Indeed Admin</h1>
+              <h1 className="font-bold text-xl tracking-tighter">Indeed Report</h1>
             </div>
             <nav className="space-y-2">
               <button onClick={() => setActiveTab('dashboard')} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${activeTab === 'dashboard' ? 'bg-emerald-600' : 'text-slate-400 hover:bg-slate-800'}`}>
                 <Icon name="dashboard" /> ダッシュボード
               </button>
               <button onClick={() => setActiveTab('report')} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${activeTab === 'report' ? 'bg-emerald-600' : 'text-slate-400 hover:bg-slate-800'}`}>
-                <Icon name="file" /> 月次レポート (MoM)
+                <Icon name="file" /> 月次・求人別レポート
               </button>
               <button onClick={() => setActiveTab('settings')} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${activeTab === 'settings' ? 'bg-emerald-600' : 'text-slate-400 hover:bg-slate-800'}`}>
-                <Icon name="settings" /> 設定 (API連携)
+                <Icon name="settings" /> システム設定
               </button>
             </nav>
           </aside>
 
           <main className="flex-1 p-4 md:p-10 bg-gray-50 overflow-y-auto">
-            {loading && <div className="fixed inset-0 bg-white/50 flex items-center justify-center z-50">読み込み中...</div>}
+            {loading && <div className="fixed inset-0 bg-white/60 flex items-center justify-center z-50 font-bold text-slate-600">Loading Data...</div>}
             
             {activeTab === 'settings' ? (
               <div className="max-w-xl mx-auto space-y-6 animate-fade-in">
                 <h2 className="text-2xl font-bold">システム設定</h2>
                 <div className="bg-white p-6 rounded-2xl shadow-sm border">
-                  <label className="block text-sm font-bold text-slate-700 mb-2">GAS Web App URL</label>
-                  <input 
-                    type="text" 
-                    value={gasUrl} 
-                    onChange={e => setGasUrl(e.target.value)}
-                    placeholder="https://script.google.com/macros/s/.../exec"
-                    className="w-full p-3 border rounded-xl mb-4 text-sm"
-                  />
+                  <p className="text-xs text-slate-500 mb-4 leading-relaxed">GASのWebアプリURLを入力してください。入力するとスプレッドシートへの蓄積が有効になります。</p>
+                  <input type="text" value={gasUrl} onChange={e => setGasUrl(e.target.value)} placeholder="https://script.google.com/..." className="w-full p-3 border rounded-xl mb-4 text-sm" />
                   <button onClick={saveSettings} className="w-full bg-slate-900 text-white p-3 rounded-xl font-bold">接続を保存</button>
                 </div>
               </div>
             ) : activeTab === 'report' ? (
-              <div className="space-y-8 animate-fade-in">
+              <div className="space-y-10 animate-fade-in">
                 <div className="flex justify-between items-center no-print">
-                   <h2 className="text-2xl font-bold">月次レポート・前月比分析</h2>
-                   <button onClick={() => window.print()} className="bg-emerald-600 text-white px-4 py-2 rounded-xl flex items-center gap-2 font-bold"><Icon name="file" size={16}/>印刷 / PDF保存</button>
+                   <h2 className="text-2xl font-bold">月次・求人別レポート</h2>
+                   <button onClick={() => window.print()} className="bg-emerald-600 text-white px-5 py-2 rounded-xl flex items-center gap-2 font-bold shadow-lg"><Icon name="file" size={16}/>印刷・PDF保存</button>
                 </div>
                 
-                <div className="grid gap-6">
-                  {monthlyAnalysis.map(m => (
-                    <div key={m.month} className="bg-white p-6 rounded-2xl shadow-sm border card">
-                      <h3 className="text-lg font-bold border-b pb-3 mb-4">{m.month} の実績</h3>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                        <div>
-                          <p className="text-xs text-slate-400 font-bold uppercase">表示回数</p>
-                          <p className="text-xl font-bold">{m.imp.toLocaleString()}</p>
-                          {m.diffImp !== undefined && m.diffImp !== null && <p className={`text-xs font-bold ${parseFloat(m.diffImp) >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>MoM: {m.diffImp >= 0 ? '+' : ''}{m.diffImp}%</p>}
-                        </div>
-                        <div>
-                          <p className="text-xs text-slate-400 font-bold uppercase">クリック数</p>
-                          <p className="text-xl font-bold">{m.clk.toLocaleString()}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-slate-400 font-bold uppercase">応募完了数</p>
-                          <p className="text-xl font-bold text-emerald-600">{m.conv.toLocaleString()}</p>
-                          {m.diffConv !== undefined && m.diffConv !== null && <p className={`text-xs font-bold ${parseFloat(m.diffConv) >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>MoM: {m.diffConv >= 0 ? '+' : ''}{m.diffConv}%</p>}
-                        </div>
+                {monthlyAnalysis.map(m => (
+                  <div key={m.month} className="bg-white rounded-3xl shadow-sm border card overflow-hidden">
+                    <div className="p-6 bg-slate-50 border-b flex justify-between items-center">
+                      <h3 className="text-xl font-bold text-slate-800">{m.month}度 運用実績</h3>
+                    </div>
+                    
+                    <div className="p-6 grid grid-cols-2 md:grid-cols-4 gap-4 border-b">
+                      <div><p className="text-[10px] text-slate-400 font-bold uppercase">表示回数</p><p className="text-xl font-bold">{m.imp.toLocaleString()}</p>
+                        {m.diffImp && <p className={`text-[10px] font-bold ${parseFloat(m.diffImp) >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>前月比: {m.diffImp}%</p>}
+                      </div>
+                      <div><p className="text-[10px] text-slate-400 font-bold uppercase">クリック数</p><p className="text-xl font-bold">{m.clk.toLocaleString()}</p></div>
+                      <div><p className="text-[10px] text-slate-400 font-bold uppercase">応募数</p><p className="text-xl font-bold text-emerald-600">{m.conv.toLocaleString()}</p>
+                        {m.diffConv && <p className={`text-[10px] font-bold ${parseFloat(m.diffConv) >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>前月比: {m.diffConv}%</p>}
                       </div>
                     </div>
-                  ))}
-                </div>
+
+                    <div className="p-0">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 text-slate-500">
+                          <tr>
+                            <th className="px-6 py-3 border-b">求人タイトル（内訳）</th>
+                            <th className="px-6 py-3 border-b text-right">表示</th>
+                            <th className="px-6 py-3 border-b text-right">クリック</th>
+                            <th className="px-6 py-3 border-b text-right">応募</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {Object.entries(m.jobs).map(([title, data]) => (
+                            <tr key={title} className="hover:bg-slate-50">
+                              <td className="px-6 py-3 font-medium text-slate-700">{title}</td>
+                              <td className="px-6 py-3 text-right">{data.imp.toLocaleString()}</td>
+                              <td className="px-6 py-3 text-right">{data.clk.toLocaleString()}</td>
+                              <td className="px-6 py-3 text-right font-bold text-emerald-600">{data.conv.toLocaleString()}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : (
               <div className="space-y-8 animate-fade-in">
                 <div className="flex justify-between items-center no-print">
-                   <h2 className="text-2xl font-bold text-slate-800">全体サマリー</h2>
+                   <h2 className="text-2xl font-bold">累計サマリー</h2>
                    <label className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl cursor-pointer font-bold transition-all shadow-md">
-                     CSVを追加保存
+                     CSVを蓄積保存
                      <input type="file" className="hidden" accept=".csv" onChange={handleFileUpload} />
                    </label>
                 </div>
                 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                  <div className="bg-white p-6 rounded-2xl border shadow-sm"><p className="text-xs font-bold text-slate-400 uppercase">累計表示</p><p className="text-2xl font-bold">{stats.totalImp.toLocaleString()}</p></div>
-                  <div className="bg-white p-6 rounded-2xl border shadow-sm"><p className="text-xs font-bold text-slate-400 uppercase">累計応募</p><p className="text-2xl font-bold text-emerald-600">{stats.totalConv.toLocaleString()}</p></div>
+                  <div className="bg-white p-6 rounded-2xl border shadow-sm"><p className="text-xs font-bold text-slate-400 uppercase">蓄積表示数</p><p className="text-2xl font-bold text-slate-800">{(rawData.reduce((a,c)=>a+c.impressions,0)).toLocaleString()}</p></div>
+                  <div className="bg-white p-6 rounded-2xl border shadow-sm"><p className="text-xs font-bold text-slate-400 uppercase">蓄積応募数</p><p className="text-2xl font-bold text-emerald-600">{(rawData.reduce((a,c)=>a+c.conversions,0)).toLocaleString()}</p></div>
                 </div>
 
-                <div className="bg-white p-6 rounded-2xl border shadow-sm h-80">
-                  <h3 className="font-bold mb-4 text-slate-700">月次トレンド</h3>
+                <div className="bg-white p-8 rounded-3xl border shadow-sm h-96">
+                  <h3 className="font-bold mb-6 text-slate-700">月次・応募数トレンド</h3>
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={[...monthlyAnalysis].reverse()}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis dataKey="month" />
-                      <YAxis />
+                      <XAxis dataKey="month" fontSize={10} />
+                      <YAxis fontSize={10} />
                       <Tooltip />
-                      <Legend />
-                      <Bar dataKey="imp" name="表示回数" fill="#94a3b8" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="imp" name="表示回数" fill="#cbd5e1" radius={[4, 4, 0, 0]} />
                       <Bar dataKey="conv" name="応募数" fill="#10b981" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
