@@ -20,28 +20,53 @@
       to { opacity: 1; transform: translateY(0); }
     }
     
-    /* 印刷用スタイルの最適化 */
+    /* 印刷用スタイルの高度な最適化 */
     @media print {
-      @page { margin: 10mm; }
+      @page { 
+        size: A4 portrait;
+        margin: 15mm 10mm;
+      }
       .no-print { display: none !important; }
       .sidebar { display: none !important; }
-      main { padding: 0 !important; margin: 0 !important; width: 100% !important; background: white !important; }
-      .card { 
+      main { 
+        padding: 0 !important; 
+        margin: 0 !important; 
+        width: 100% !important; 
+        background: white !important; 
+      }
+      /* 各月のカードをA4の1ページに収める（長い場合は次ページへ） */
+      .report-card { 
         border: 1px solid #e2e8f0 !important; 
         box-shadow: none !important; 
-        page-break-inside: avoid !important; 
-        margin-bottom: 2rem !important;
-        border-radius: 0.5rem !important;
+        break-after: page !important; /* 各月ごとに改ページ */
+        margin-bottom: 0 !important;
+        padding-bottom: 20mm !important;
+        border-radius: 0 !important;
+        border: none !important;
+      }
+      /* 最後の要素の後は改ページしない */
+      .report-card:last-child {
+        break-after: auto !important;
       }
       body { background: white !important; }
-      .bg-slate-50 { background-color: white !important; }
+      .bg-slate-50, .bg-slate-100 { background-color: white !important; }
       .bg-white { background-color: white !important; }
-      /* グラフが見えるように設定 */
-      .recharts-responsive-container { min-height: 300px !important; }
+      
+      /* フォントサイズの微調整 */
+      .text-2xl { font-size: 18pt !important; }
+      .text-xl { font-size: 14pt !important; }
+      .text-sm { font-size: 9pt !important; }
+      .text-xs { font-size: 8pt !important; }
+      
+      /* グラフの印刷対応 */
+      .recharts-responsive-container { 
+        min-height: 250px !important; 
+        max-height: 350px !important;
+      }
     }
   </style>
 </head>
-<body class="bg-slate-50 text-slate-900">
+<body class="bg-slate-50 text-slate-900 font-sans">
   <div id="root"></div>
 
   <script type="text/babel">
@@ -235,29 +260,35 @@
           {/* Sidebar */}
           <aside className="w-full md:w-64 bg-slate-900 text-white p-6 flex-shrink-0 no-print">
             <div className="flex items-center gap-3 mb-10">
-              <div className="p-2 bg-emerald-500 rounded-lg"><Icon name="trending" size={24} /></div>
-              <h1 className="font-bold text-xl tracking-tight text-white">Indeed Organic</h1>
+              <div className="p-2 bg-emerald-500 rounded-lg shadow-inner"><Icon name="trending" size={24} /></div>
+              <h1 className="font-bold text-xl tracking-tight text-white">Indeed Agency</h1>
             </div>
-            <nav className="space-y-4">
-              <button onClick={() => setActiveTab('dashboard')} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${activeTab === 'dashboard' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800'}`}>
-                <Icon name="dashboard" size={20} />
-                <span className="font-semibold text-sm">ダッシュボード</span>
+            <nav className="space-y-3">
+              <button 
+                onClick={() => setActiveTab('dashboard')} 
+                className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all font-medium text-sm ${activeTab === 'dashboard' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800'}`}
+              >
+                <Icon name="dashboard" size={18} />
+                <span>ダッシュボード</span>
               </button>
-              <button onClick={() => setActiveTab('report')} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${activeTab === 'report' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800'}`}>
-                <Icon name="file" size={20} />
-                <span className="font-semibold text-sm">月次詳細レポート</span>
+              <button 
+                onClick={() => setActiveTab('report')} 
+                className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all font-medium text-sm ${activeTab === 'report' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800'}`}
+              >
+                <Icon name="file" size={18} />
+                <span>月次詳細レポート</span>
               </button>
             </nav>
             <div className="mt-auto pt-10 space-y-4">
-              <button onClick={clearAllData} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-400 hover:text-red-300 transition-colors">
+              <button onClick={clearAllData} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-400 hover:text-red-300 transition-colors font-semibold">
                 <Icon name="trash" size={14} /> 蓄積データを全消去
               </button>
-              <div className="text-[10px] text-slate-500 uppercase tracking-widest font-bold px-3">Agency Edition v1.4.5</div>
+              <div className="text-[10px] text-slate-500 uppercase tracking-widest font-bold px-3">Agency Edition v1.5</div>
             </div>
           </aside>
 
           {/* Main Content */}
-          <main className="flex-1 p-4 md:p-10 overflow-y-auto bg-slate-50">
+          <main className="flex-1 p-4 md:p-8 overflow-y-auto bg-slate-50">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4 no-print">
               <div>
                 <h2 className="text-3xl font-bold text-slate-800 tracking-tight">
@@ -265,7 +296,7 @@
                 </h2>
                 <p className="text-slate-500 mt-1 flex items-center gap-2 text-sm font-medium">
                   <Icon name="alert" size={14} className="text-blue-500" />
-                  累積された運用データを管理中
+                  運用データの分析とPDF出力をサポート
                 </p>
               </div>
               <div className="flex gap-3">
@@ -287,9 +318,9 @@
             </div>
 
             {rawData.length === 0 ? (
-              <div className="h-96 flex flex-col items-center justify-center border-4 border-dashed border-gray-200 rounded-3xl p-10 bg-white">
+              <div className="h-96 flex flex-col items-center justify-center border-4 border-dashed border-gray-200 rounded-3xl p-10 bg-white shadow-sm">
                 <Icon name="file" size={48} className="text-slate-200 mb-4" />
-                <p className="text-slate-400 font-bold">JobsCampaignsファイルを読み込んでください</p>
+                <p className="text-slate-400 font-bold">Indeedアナリティクスから書き出したCSVを読み込んでください</p>
               </div>
             ) : (
               <div className="space-y-8 animate-fade-in">
@@ -307,14 +338,14 @@
                         <h3 className="text-xl font-bold text-slate-800 mb-8 flex items-center gap-2">
                           <Icon name="trending" className="text-emerald-500" /> 月別報告トレンド
                         </h3>
-                        <div className="h-[400px]">
+                        <div className="h-[350px]">
                           <ResponsiveContainer width="100%" height="100%">
                             <ComposedChart data={[...monthlyAnalysis].reverse()}>
                               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                               <XAxis dataKey="month" fontSize={12} axisLine={false} tickLine={false} />
                               <YAxis fontSize={12} axisLine={false} tickLine={false} />
                               <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
-                              <Legend iconType="circle" verticalAlign="top" align="right" />
+                              <Legend iconType="circle" verticalAlign="top" align="right" wrapperStyle={{paddingBottom: '20px'}} />
                               <Bar dataKey="imp" name="表示回数" fill="#94a3b8" radius={[4, 4, 0, 0]} barSize={40} />
                               <Bar dataKey="clk" name="クリック数" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={20} />
                               <Line type="monotone" dataKey="conv" name="応募完了" stroke="#10b981" strokeWidth={3} dot={{ r: 4, fill: "#10b981" }} />
@@ -326,9 +357,9 @@
                         <div className="bg-emerald-500 w-12 h-12 rounded-2xl flex items-center justify-center text-white mb-6 shadow-lg shadow-emerald-200">
                           <Icon name="alert" size={24} />
                         </div>
-                        <h4 className="text-emerald-900 font-bold text-xl mb-4">運用アドバイス</h4>
+                        <h4 className="text-emerald-900 font-bold text-xl mb-4 text-center md:text-left">運用アドバイス</h4>
                         <p className="text-emerald-800 text-sm leading-relaxed font-medium">
-                          求人別累計データを確認し、応募単価が低いエース求人のキーワードを他の職種に横展開することを推奨します。
+                          求人別累計データに基づき、パフォーマンスの高い求人キーワードを抽出し、他案件への水平展開をお勧めします。
                         </p>
                       </div>
                     </div>
@@ -367,18 +398,24 @@
                     </div>
                   </>
                 ) : (
-                  <div className="space-y-12 pb-20">
-                    {/* 印刷時のレポートヘッダー（画面上は非表示） */}
-                    <div className="print-only text-center mb-10 border-b pb-6">
-                      <h1 className="text-2xl font-bold text-slate-900">Indeed 無料出稿 運用分析レポート</h1>
-                      <p className="text-slate-500 mt-2 font-medium">発行日: {new Date().toLocaleDateString('ja-JP')}</p>
+                  <div id="print-area" className="space-y-0">
+                    {/* 印刷用ヘッダー */}
+                    <div className="print-only text-center mb-12 border-b pb-8">
+                      <div className="flex justify-center items-center gap-4 mb-4 text-emerald-600">
+                        <Icon name="trending" size={40} />
+                        <h1 className="text-3xl font-bold text-slate-900">Indeed 無料出稿 運用分析レポート</h1>
+                      </div>
+                      <div className="flex justify-between items-center px-4">
+                        <p className="text-slate-500 font-semibold uppercase tracking-widest text-xs italic">Confidential Report</p>
+                        <p className="text-slate-600 font-bold">発行日: {new Date().toLocaleDateString('ja-JP', {year: 'numeric', month: 'long', day: 'numeric'})}</p>
+                      </div>
                     </div>
 
                     {monthlyAnalysis.map(m => (
-                      <div key={m.month} className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden card animate-fade-in">
+                      <div key={m.month} className="report-card bg-white shadow-sm border border-slate-200 overflow-hidden mb-8 md:rounded-3xl">
                         <div className="p-6 bg-slate-50 border-b flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                           <div className="flex items-center gap-4">
-                            <h3 className="text-2xl font-bold text-slate-800">{m.month} 報告分レポート</h3>
+                            <h3 className="text-2xl font-bold text-slate-800">{m.month}度 報告データ</h3>
                             <button 
                               onClick={() => deleteMonthlyData(m.month)}
                               className="no-print p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors group flex items-center gap-1 text-xs font-bold"
@@ -388,37 +425,38 @@
                               <span>この月を削除</span>
                             </button>
                           </div>
-                          <div className="flex gap-8">
+                          <div className="grid grid-cols-2 gap-x-8 gap-y-2">
                             <div className="text-right">
-                              <p className="text-[10px] text-slate-400 font-bold uppercase">合計表示回数</p>
-                              <p className="text-lg font-bold">{m.imp.toLocaleString()}
-                                {m.diffImp && <span className={`text-[10px] ml-1 ${parseFloat(m.diffImp) >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>({m.diffImp >= 0 ? '+' : ''}{m.diffImp}%)</span>}
+                              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">合計表示回数</p>
+                              <p className="text-lg font-bold text-slate-800">{m.imp.toLocaleString()}
+                                {m.diffImp && <span className={`text-[10px] ml-1 font-bold ${parseFloat(m.diffImp) >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>({m.diffImp >= 0 ? '+' : ''}{m.diffImp}%)</span>}
                               </p>
                             </div>
                             <div className="text-right">
-                              <p className="text-[10px] text-slate-400 font-bold uppercase">合計応募完了</p>
+                              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">合計応募完了</p>
                               <p className="text-lg font-bold text-emerald-600">{m.conv.toLocaleString()}
-                                {m.diffConv && <span className={`text-[10px] ml-1 ${parseFloat(m.diffConv) >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>({m.diffConv >= 0 ? '+' : ''}{m.diffConv}%)</span>}
+                                {m.diffConv && <span className={`text-[10px] ml-1 font-bold ${parseFloat(m.diffConv) >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>({m.diffConv >= 0 ? '+' : ''}{m.diffConv}%)</span>}
                               </p>
                             </div>
                           </div>
                         </div>
 
-                        <div className="p-8 border-b bg-white">
-                          <h4 className="text-lg font-bold text-slate-700 mb-6 flex items-center gap-2">
+                        {/* 求人別パフォーマンスグラフ */}
+                        <div className="p-6 border-b bg-white">
+                          <h4 className="text-base font-bold text-slate-700 mb-6 flex items-center gap-2">
                             <Icon name="chart" className="text-emerald-500" />
-                            求人票別 パフォーマンス（{m.month}度分）
+                            求人票別 パフォーマンス比較（上位10件）
                           </h4>
                           <div className="h-64">
                             <ResponsiveContainer width="100%" height="100%">
-                              <BarChart data={m.jobArray.slice(0, 10)} layout="vertical" margin={{ left: 20, right: 20 }}>
+                              <BarChart data={m.jobArray.slice(0, 10)} layout="vertical" margin={{ left: 10, right: 30, top: 0, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
                                 <XAxis type="number" hide />
-                                <YAxis dataKey="title" type="category" fontSize={10} width={120} tickFormatter={(val) => val.length > 15 ? val.substring(0, 15) + '...' : val} axisLine={false} tickLine={false} />
-                                <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px rgba(0,0,0,0.1)' }} />
-                                <Legend iconType="circle" />
-                                <Bar dataKey="clk" name="クリック数" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={15} />
-                                <Bar dataKey="conv" name="応募完了" fill="#10b981" radius={[0, 4, 4, 0]} barSize={15} />
+                                <YAxis dataKey="title" type="category" fontSize={9} width={150} tickFormatter={(val) => val.length > 20 ? val.substring(0, 20) + '...' : val} axisLine={false} tickLine={false} stroke="#64748b" />
+                                <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px rgba(0,0,0,0.1)', fontSize: '10px' }} />
+                                <Legend iconType="circle" wrapperStyle={{fontSize: '10px'}} />
+                                <Bar dataKey="clk" name="クリック数" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={12} />
+                                <Bar dataKey="conv" name="応募完了" fill="#10b981" radius={[0, 4, 4, 0]} barSize={12} />
                               </BarChart>
                             </ResponsiveContainer>
                           </div>
@@ -439,12 +477,12 @@
                             <tbody className="divide-y divide-slate-100">
                               {m.jobArray.map((data) => (
                                 <tr key={data.title} className="hover:bg-slate-50/80 transition-colors group">
-                                  <td className="px-6 py-4 font-semibold text-slate-700 max-w-xs md:max-w-md truncate group-hover:text-emerald-600 transition-colors">{data.title}</td>
-                                  <td className="px-6 py-4 text-right text-slate-600">{data.imp.toLocaleString()}</td>
-                                  <td className="px-6 py-4 text-right text-slate-600">{data.clk.toLocaleString()}</td>
-                                  <td className="px-6 py-4 text-right font-bold text-blue-600 bg-blue-50/30">{data.start.toLocaleString()}</td>
-                                  <td className="px-6 py-4 text-right font-bold text-emerald-600 bg-emerald-50/30 border-r">{data.conv.toLocaleString()}</td>
-                                  <td className="px-4 py-4 text-center no-print">
+                                  <td className="px-6 py-3 font-semibold text-slate-700 max-w-xs md:max-w-md truncate group-hover:text-emerald-600 transition-colors">{data.title}</td>
+                                  <td className="px-6 py-3 text-right text-slate-600">{data.imp.toLocaleString()}</td>
+                                  <td className="px-6 py-3 text-right text-slate-600">{data.clk.toLocaleString()}</td>
+                                  <td className="px-6 py-3 text-right font-bold text-blue-600 bg-blue-50/30">{data.start.toLocaleString()}</td>
+                                  <td className="px-6 py-3 text-right font-bold text-emerald-600 bg-emerald-50/30 border-r">{data.conv.toLocaleString()}</td>
+                                  <td className="px-4 py-3 text-center no-print">
                                     <button 
                                       onClick={() => deleteJobRecord(data.title, m.month)}
                                       className="p-1.5 text-slate-300 hover:text-red-500 transition-colors rounded-md hover:bg-red-50"
