@@ -24,7 +24,7 @@
     @media print {
       @page { 
         size: A4 portrait;
-        margin: 15mm 10mm;
+        margin: 12mm 10mm;
       }
       .no-print { display: none !important; }
       .sidebar { display: none !important; }
@@ -34,37 +34,52 @@
         width: 100% !important; 
         background: white !important; 
       }
-      /* 各月のカードをA4の1ページに収める */
+      
+      /* サマリーセクション（1ページ目） */
+      .summary-print-block {
+        display: block !important;
+        width: 100% !important;
+        margin-bottom: 20px !important;
+      }
+
+      /* 各月の詳細レポート（2ページ目以降） */
       .report-card { 
         border: 1px solid #e2e8f0 !important; 
         box-shadow: none !important; 
-        break-after: page !important; 
+        break-before: page !important; /* 各月は必ず新しいページから開始 */
+        margin-top: 0 !important;
         margin-bottom: 0 !important;
         padding-bottom: 10mm !important;
+        border-radius: 0 !important;
         border: none !important;
       }
-      /* サマリーセクションの印刷調整 */
-      .summary-print-block {
-        break-after: auto !important;
-        margin-bottom: 15mm !important;
-        border-bottom: 2px solid #f1f5f9 !important;
-        padding-bottom: 10mm !important;
+      
+      /* 最初のレポートカードだけは改ページしない（サマリーの直後のため） */
+      .report-card:first-of-type {
+        break-before: auto !important;
       }
-      .report-card:last-child {
-        break-after: auto !important;
-      }
+
       body { background: white !important; }
       .bg-slate-50, .bg-slate-100 { background-color: white !important; }
       .bg-white { background-color: white !important; }
       
+      /* フォントサイズ・テーブル幅の固定 */
       .text-2xl { font-size: 18pt !important; }
       .text-xl { font-size: 14pt !important; }
       .text-sm { font-size: 9pt !important; }
       .text-xs { font-size: 8pt !important; }
+      table { width: 100% !important; border-collapse: collapse !important; }
       
+      /* 印刷時のグラフのサイズ固定 */
       .recharts-responsive-container { 
-        min-height: 250px !important; 
-        max-height: 350px !important;
+        width: 100% !important;
+        min-height: 280px !important; 
+        max-height: 320px !important;
+      }
+      
+      /* 改ページで要素が切れるのを防ぐ */
+      .card-inner-block {
+        break-inside: avoid !important;
       }
     }
   </style>
@@ -106,17 +121,17 @@
     };
 
     const StatCard = ({ title, value, unit, icon: IconName, color, subValue, isPrint = false }) => (
-      <div className={`bg-white p-6 rounded-2xl border border-gray-100 shadow-sm ${!isPrint ? 'hover:shadow-md transition-all duration-300' : ''}`}>
+      <div className={`bg-white p-5 rounded-2xl border border-gray-100 shadow-sm ${!isPrint ? 'hover:shadow-md transition-all duration-300' : ''}`}>
         <div className="flex justify-between items-start">
           <div>
-            <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider">{title}</p>
-            <h3 className="text-3xl font-bold mt-2 text-slate-800">
-              {value}<span className="text-lg ml-1 font-normal text-slate-400">{unit}</span>
+            <p className="text-[10px] md:text-sm font-semibold text-slate-500 uppercase tracking-wider">{title}</p>
+            <h3 className="text-xl md:text-3xl font-bold mt-1 md:mt-2 text-slate-800 leading-tight">
+              {value}<span className="text-xs md:text-lg ml-1 font-normal text-slate-400">{unit}</span>
             </h3>
-            {subValue && <p className="text-xs text-slate-400 mt-1 font-medium">{subValue}</p>}
+            {subValue && <p className="text-[10px] text-slate-400 mt-1 font-medium">{subValue}</p>}
           </div>
-          <div className={`p-3 rounded-xl ${color} text-white shadow-lg`}>
-            <Icon name={IconName} size={24} />
+          <div className={`p-2 md:p-3 rounded-xl ${color} text-white shadow-lg`}>
+            <Icon name={IconName} size={window.innerWidth < 768 ? 18 : 24} />
           </div>
         </div>
       </div>
@@ -181,7 +196,7 @@
       };
 
       const clearAllData = () => {
-        if (confirm('すべての蓄積データを削除しますか？この操作は取り消せません。')) {
+        if (confirm('すべての蓄積データを削除しますか？')) {
           setRawData([]);
         }
       };
@@ -228,16 +243,13 @@
         rawData.forEach(d => {
           const month = d.reportMonth;
           if (!month) return;
-          
           if (!groups[month]) {
             groups[month] = { month, imp: 0, clk: 0, start: 0, conv: 0, jobs: {} };
           }
-          
           groups[month].imp += d.impressions;
           groups[month].clk += d.clicks;
           groups[month].start += d.startApps;
           groups[month].conv += d.conversions;
-
           if (!groups[month].jobs[d.title]) {
             groups[month].jobs[d.title] = { title: d.title, imp: 0, clk: 0, start: 0, conv: 0 };
           }
@@ -246,7 +258,6 @@
           groups[month].jobs[d.title].start += d.startApps;
           groups[month].jobs[d.title].conv += d.conversions;
         });
-        
         const sorted = Object.values(groups).sort((a, b) => b.month.localeCompare(a.month));
         return sorted.map((m, i) => {
           const prev = sorted[i + 1];
@@ -258,6 +269,8 @@
           };
         });
       }, [rawData]);
+
+      const reversedMonthlyData = useMemo(() => [...monthlyAnalysis].reverse(), [monthlyAnalysis]);
 
       return (
         <div className="min-h-screen flex flex-col md:flex-row">
@@ -287,7 +300,7 @@
               <button onClick={clearAllData} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-400 hover:text-red-300 transition-colors font-semibold">
                 <Icon name="trash" size={14} /> 蓄積データを全消去
               </button>
-              <div className="text-[10px] text-slate-500 uppercase tracking-widest font-bold px-3">Agency Edition v1.5.1</div>
+              <div className="text-[10px] text-slate-500 uppercase tracking-widest font-bold px-3">Agency Edition v1.6</div>
             </div>
           </aside>
 
@@ -295,25 +308,25 @@
           <main className="flex-1 p-4 md:p-8 overflow-y-auto bg-slate-50">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4 no-print">
               <div>
-                <h2 className="text-3xl font-bold text-slate-800 tracking-tight">
+                <h2 className="text-2xl md:text-3xl font-bold text-slate-800 tracking-tight leading-tight">
                   {activeTab === 'dashboard' ? '運用全体サマリー' : '月次・求人別分析'}
                 </h2>
-                <p className="text-slate-500 mt-1 flex items-center gap-2 text-sm font-medium">
+                <p className="text-slate-500 mt-1 flex items-center gap-2 text-xs md:text-sm font-medium">
                   <Icon name="alert" size={14} className="text-blue-500" />
                   運用データの分析とPDF出力をサポート
                 </p>
               </div>
-              <div className="flex gap-3">
+              <div className="flex gap-2 md:gap-3 w-full md:w-auto">
                 {activeTab === 'report' && rawData.length > 0 && (
                   <button 
                     onClick={() => window.print()}
-                    className="bg-slate-800 hover:bg-slate-700 text-white px-6 py-3 rounded-2xl font-bold shadow-xl flex items-center gap-3 transition-all active:scale-95"
+                    className="flex-1 md:flex-none bg-slate-800 hover:bg-slate-700 text-white px-4 md:px-6 py-3 rounded-2xl font-bold shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95"
                   >
                     <Icon name="printer" size={20} />
                     PDFレポート出力
                   </button>
                 )}
-                <label className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-2xl font-bold cursor-pointer transition-all transform hover:scale-105 shadow-xl flex items-center gap-3 active:scale-95">
+                <label className="flex-1 md:flex-none bg-emerald-600 hover:bg-emerald-700 text-white px-4 md:px-6 py-3 rounded-2xl font-bold cursor-pointer transition-all transform hover:scale-105 shadow-xl flex items-center justify-center gap-3 active:scale-95">
                   <Icon name="upload" size={20} />
                   CSVを追加保存
                   <input type="file" className="hidden" accept=".csv" onChange={handleFileUpload} />
@@ -324,88 +337,15 @@
             {rawData.length === 0 ? (
               <div className="h-96 flex flex-col items-center justify-center border-4 border-dashed border-gray-200 rounded-3xl p-10 bg-white shadow-sm">
                 <Icon name="file" size={48} className="text-slate-200 mb-4" />
-                <p className="text-slate-400 font-bold">Indeedアナリティクスから書き出したCSVを読み込んでください</p>
+                <p className="text-slate-400 font-bold">CSVを読み込んでください</p>
               </div>
             ) : (
               <div className="space-y-8 animate-fade-in">
-                {activeTab === 'dashboard' ? (
-                  <>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                      <StatCard title="累計表示回数" value={stats.totalImp.toLocaleString()} unit="回" icon="eye" color="bg-slate-500" />
-                      <StatCard title="平均クリック率" value={stats.avgCtr.toFixed(2)} unit="%" icon="cursor" color="bg-blue-500" subValue={`${stats.totalClick.toLocaleString()} クリック`} />
-                      <StatCard title="応募開始数" value={stats.totalStart.toLocaleString()} unit="件" icon="trending" color="bg-indigo-500" subValue={`開始率: ${stats.avgAsr.toFixed(1)}%`} />
-                      <StatCard title="応募完了数" value={stats.totalConv.toLocaleString()} unit="件" icon="users" color="bg-emerald-500" subValue={`完了率: ${stats.avgCvr.toFixed(1)}%`} />
-                    </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                      <div className="lg:col-span-2 bg-white p-8 rounded-3xl border border-gray-100 shadow-sm">
-                        <h3 className="text-xl font-bold text-slate-800 mb-8 flex items-center gap-2">
-                          <Icon name="trending" className="text-emerald-500" /> 月別報告トレンド
-                        </h3>
-                        <div className="h-[350px]">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <ComposedChart data={[...monthlyAnalysis].reverse()}>
-                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                              <XAxis dataKey="month" fontSize={12} axisLine={false} tickLine={false} />
-                              <YAxis fontSize={12} axisLine={false} tickLine={false} />
-                              <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
-                              <Legend iconType="circle" verticalAlign="top" align="right" wrapperStyle={{paddingBottom: '20px'}} />
-                              <Bar dataKey="imp" name="表示回数" fill="#94a3b8" radius={[4, 4, 0, 0]} barSize={40} />
-                              <Bar dataKey="clk" name="クリック数" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={20} />
-                              <Line type="monotone" dataKey="conv" name="応募完了" stroke="#10b981" strokeWidth={3} dot={{ r: 4, fill: "#10b981" }} />
-                            </ComposedChart>
-                          </ResponsiveContainer>
-                        </div>
-                      </div>
-                      <div className="bg-emerald-50 p-8 rounded-3xl border border-emerald-100 flex flex-col justify-center shadow-sm">
-                        <div className="bg-emerald-500 w-12 h-12 rounded-2xl flex items-center justify-center text-white mb-6 shadow-lg shadow-emerald-200">
-                          <Icon name="alert" size={24} />
-                        </div>
-                        <h4 className="text-emerald-900 font-bold text-xl mb-4 text-center md:text-left">運用アドバイス</h4>
-                        <p className="text-emerald-800 text-sm leading-relaxed font-medium">
-                          求人別累計データに基づき、パフォーマンスの高い求人キーワードを抽出し、他案件への水平展開をお勧めします。
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden card">
-                      <div className="p-6 bg-slate-50 border-b flex justify-between items-center">
-                        <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                          <Icon name="briefcase" className="text-emerald-500" />
-                          求人別 累計パフォーマンス
-                        </h3>
-                      </div>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm">
-                          <thead className="bg-slate-50/50 text-slate-500 font-bold uppercase tracking-tighter">
-                            <tr>
-                              <th className="px-6 py-4">求人タイトル</th>
-                              <th className="px-6 py-4 text-right">表示数</th>
-                              <th className="px-6 py-4 text-right">クリック</th>
-                              <th className="px-6 py-4 text-right">開始</th>
-                              <th className="px-6 py-4 text-right text-emerald-600">完了</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100">
-                            {jobAggregate.map(([title, d]) => (
-                              <tr key={title} className="hover:bg-slate-50/80 transition-colors group">
-                                <td className="px-6 py-4 font-semibold text-slate-700 max-w-md truncate group-hover:text-emerald-600 transition-colors">{title}</td>
-                                <td className="px-6 py-4 text-right text-slate-600">{d.imp.toLocaleString()}</td>
-                                <td className="px-6 py-4 text-right text-slate-600">{d.clk.toLocaleString()}</td>
-                                <td className="px-6 py-4 text-right text-indigo-500 font-medium">{d.start.toLocaleString()}</td>
-                                <td className="px-6 py-4 text-right font-bold text-emerald-600">{d.conv.toLocaleString()}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <div id="print-area" className="space-y-0">
-                    {/* 印刷用ヘッダー & 累計サマリー */}
-                    <div className="summary-print-block">
-                      <div className="text-center mb-10 border-b-2 border-emerald-600 pb-8">
+                {/* 運用全体サマリー (Dashboard or Report tab) */}
+                {(activeTab === 'dashboard' || activeTab === 'report') && (
+                  <div className={activeTab === 'report' ? 'summary-print-block' : ''}>
+                    {activeTab === 'report' && (
+                      <div className="print-only text-center mb-10 border-b-2 border-emerald-600 pb-8">
                         <div className="flex justify-center items-center gap-4 mb-4 text-emerald-600">
                           <Icon name="trending" size={40} />
                           <h1 className="text-3xl font-bold text-slate-900">Indeed 無料出稿 運用分析レポート</h1>
@@ -415,40 +355,83 @@
                           <p className="text-slate-600 font-bold">発行日: {new Date().toLocaleDateString('ja-JP', {year: 'numeric', month: 'long', day: 'numeric'})}</p>
                         </div>
                       </div>
+                    )}
 
-                      {/* レポート冒頭の累計実績セクション */}
-                      <div className="mb-12">
-                        <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-                          <Icon name="star" className="text-amber-500" />
-                          累計運用実績サマリー
-                        </h3>
-                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                          <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">総表示回数</p>
-                            <p className="text-xl font-bold text-slate-800">{stats.totalImp.toLocaleString()}<span className="text-xs ml-1 font-normal">回</span></p>
-                          </div>
-                          <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">平均クリック率</p>
-                            <p className="text-xl font-bold text-blue-600">{stats.avgCtr.toFixed(2)}<span className="text-xs ml-1 font-normal">%</span></p>
-                          </div>
-                          <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">応募開始数</p>
-                            <p className="text-xl font-bold text-indigo-600">{stats.totalStart.toLocaleString()}<span className="text-xs ml-1 font-normal">件</span></p>
-                          </div>
-                          <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">応募完了数</p>
-                            <p className="text-xl font-bold text-emerald-600">{stats.totalConv.toLocaleString()}<span className="text-xs ml-1 font-normal">件</span></p>
-                          </div>
-                        </div>
+                    <div className="card-inner-block mb-8">
+                      <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+                        <Icon name="star" className="text-amber-500" />
+                        運用累計実績サマリー
+                      </h3>
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                        <StatCard title="総表示回数" value={stats.totalImp.toLocaleString()} unit="回" icon="eye" color="bg-slate-500" isPrint={activeTab === 'report'} />
+                        <StatCard title="平均クリック率" value={stats.avgCtr.toFixed(2)} unit="%" icon="cursor" color="bg-blue-500" subValue={`${stats.totalClick.toLocaleString()} クリック`} isPrint={activeTab === 'report'} />
+                        <StatCard title="応募開始数" value={stats.totalStart.toLocaleString()} unit="件" icon="trending" color="bg-indigo-500" subValue={`開始率: ${stats.avgAsr.toFixed(1)}%`} isPrint={activeTab === 'report'} />
+                        <StatCard title="応募完了数" value={stats.totalConv.toLocaleString()} unit="件" icon="users" color="bg-emerald-500" subValue={`完了率: ${stats.avgCvr.toFixed(1)}%`} isPrint={activeTab === 'report'} />
                       </div>
                     </div>
 
-                    {/* 各月詳細セクション */}
+                    <div className="card-inner-block bg-white p-6 md:p-8 rounded-3xl border border-gray-100 shadow-sm mb-8">
+                      <h3 className="text-xl font-bold text-slate-800 mb-8 flex items-center gap-2">
+                        <Icon name="trending" className="text-emerald-500" /> 月別報告トレンド
+                      </h3>
+                      <div className="h-[300px] md:h-[350px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <ComposedChart data={reversedMonthlyData}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                            <XAxis dataKey="month" fontSize={10} axisLine={false} tickLine={false} />
+                            <YAxis fontSize={10} axisLine={false} tickLine={false} />
+                            <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
+                            <Legend iconType="circle" verticalAlign="top" align="right" wrapperStyle={{paddingBottom: '20px'}} />
+                            <Bar dataKey="imp" name="表示回数" fill="#94a3b8" radius={[4, 4, 0, 0]} barSize={40} />
+                            <Bar dataKey="clk" name="クリック数" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={20} />
+                            <Line type="monotone" dataKey="conv" name="応募完了" stroke="#10b981" strokeWidth={3} dot={{ r: 4, fill: "#10b981" }} />
+                          </ComposedChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === 'dashboard' ? (
+                  <div className="card-inner-block bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden card">
+                    <div className="p-6 bg-slate-50 border-b flex justify-between items-center">
+                      <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                        <Icon name="briefcase" className="text-emerald-500" />
+                        求人別 累計パフォーマンス
+                      </h3>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-sm">
+                        <thead className="bg-slate-50/50 text-slate-500 font-bold uppercase tracking-tighter">
+                          <tr>
+                            <th className="px-6 py-4">求人タイトル</th>
+                            <th className="px-6 py-4 text-right">表示</th>
+                            <th className="px-6 py-4 text-right">クリック</th>
+                            <th className="px-6 py-4 text-right">開始</th>
+                            <th className="px-6 py-4 text-right text-emerald-600">完了</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {jobAggregate.map(([title, d]) => (
+                            <tr key={title} className="hover:bg-slate-50/80 transition-colors group">
+                              <td className="px-6 py-4 font-semibold text-slate-700 max-w-md truncate group-hover:text-emerald-600 transition-colors">{title}</td>
+                              <td className="px-6 py-4 text-right text-slate-600">{d.imp.toLocaleString()}</td>
+                              <td className="px-6 py-4 text-right text-slate-600">{d.clk.toLocaleString()}</td>
+                              <td className="px-6 py-4 text-right text-indigo-500 font-medium">{d.start.toLocaleString()}</td>
+                              <td className="px-6 py-4 text-right font-bold text-emerald-600">{d.conv.toLocaleString()}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : (
+                  <div id="print-area" className="space-y-0">
                     {monthlyAnalysis.map(m => (
                       <div key={m.month} className="report-card bg-white shadow-sm border border-slate-200 overflow-hidden mb-8 md:rounded-3xl">
                         <div className="p-6 bg-slate-50 border-b flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                           <div className="flex items-center gap-4">
-                            <h3 className="text-2xl font-bold text-slate-800">{m.month} 報告分レポート</h3>
+                            <h3 className="text-2xl font-bold text-slate-800">{m.month} 報告データ</h3>
                             <button 
                               onClick={() => deleteMonthlyData(m.month)}
                               className="no-print p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors group flex items-center gap-1 text-xs font-bold"
@@ -474,8 +457,7 @@
                           </div>
                         </div>
 
-                        {/* 求人別パフォーマンスグラフ */}
-                        <div className="p-6 border-b bg-white">
+                        <div className="card-inner-block p-6 border-b bg-white">
                           <h4 className="text-base font-bold text-slate-700 mb-6 flex items-center gap-2">
                             <Icon name="chart" className="text-emerald-500" />
                             求人票別 パフォーマンス比較（上位10件）
@@ -509,7 +491,7 @@
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                               {m.jobArray.map((data) => (
-                                <tr key={data.title} className="hover:bg-slate-50/80 transition-colors group">
+                                <tr key={data.id || data.title} className="hover:bg-slate-50/80 transition-colors group">
                                   <td className="px-6 py-3 font-semibold text-slate-700 max-w-xs md:max-w-md truncate group-hover:text-emerald-600 transition-colors">{data.title}</td>
                                   <td className="px-6 py-3 text-right text-slate-600">{data.imp.toLocaleString()}</td>
                                   <td className="px-6 py-3 text-right text-slate-600">{data.clk.toLocaleString()}</td>
