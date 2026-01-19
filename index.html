@@ -12,18 +12,20 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Noto+Sans+JP:wght@400;700&display=swap');
-    body { font-family: 'Inter', 'Noto Sans JP', sans-serif; }
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Noto+Sans+JP:wght@400;700;900&display=swap');
+    body { font-family: 'Inter', 'Noto Sans JP', sans-serif; -webkit-font-smoothing: antialiased; }
+    
     .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(10px); }
       to { opacity: 1; transform: translateY(0); }
     }
     
+    /* 印刷用スタイルの極限最適化 */
     @media print {
       @page { 
         size: A4 portrait;
-        margin: 10mm 12mm;
+        margin: 8mm 10mm;
       }
       .no-print { display: none !important; }
       .sidebar { display: none !important; }
@@ -34,57 +36,41 @@
         background: white !important; 
       }
       
-      /* 1ページ目のコンテナ（改ページ制御とマージン調整） */
+      /* 1ページ目：サマリーと推移グラフをセットにする */
       .summary-print-page {
         display: block !important;
         page-break-after: always !important;
-        margin-bottom: 0 !important;
-        padding-top: 0 !important;
+        width: 100% !important;
       }
-      
-      /* 印刷時のマージン短縮 */
-      .print-mb-small { margin-bottom: 1.5rem !important; }
-      .print-mb-medium { margin-bottom: 2rem !important; }
-      .print-p-small { padding: 1.5rem !important; }
-      .print-border-b-small { border-bottom-width: 2px !important; padding-bottom: 1rem !important; margin-bottom: 1.5rem !important; }
 
-      /* 各月の詳細レポート（2ページ目以降） */
+      /* 2ページ目以降：月次詳細 */
       .report-card { 
         page-break-before: always !important; 
-        border: 1px solid #e2e8f0 !important; 
+        border: 1px solid #cbd5e1 !important; 
+        margin-top: 0 !important;
+        margin-bottom: 0 !important;
         padding: 0 !important;
         border-radius: 0 !important;
-        margin-bottom: 0 !important;
       }
       
       body { background: white !important; color: #000 !important; }
       
-      /* テキストサイズの最適化（全体的に少し小さくして収まりを良くする） */
-      .text-4xl { font-size: 24pt !important; }
-      .text-3xl { font-size: 20pt !important; }
-      .text-2xl { font-size: 16pt !important; }
-      .text-xl { font-size: 14pt !important; }
-      .text-lg { font-size: 11pt !important; }
-      .text-sm { font-size: 9pt !important; }
-      .text-xs { font-size: 8pt !important; }
-      
-      /* アイコン強制表示設定 */
-      svg { 
-        display: inline-block !important; 
+      /* 色の強制出力設定 */
+      * {
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
 
-      /* グラフ領域の高さ調整（1枚目に収めるため短縮） */
-      .trend-chart-container {
-        height: 250px !important;
-      }
-      .recharts-responsive-container { 
-        width: 100% !important;
-      }
+      svg { display: inline-block !important; }
+
+      /* 1枚目に収めるための高さ制限 */
+      .trend-chart-container { height: 260px !important; }
+      .job-chart-container { height: 280px !important; }
+
+      /* Rechartsのテキストを極太にする */
       .recharts-text {
-        font-weight: 700 !important;
-        fill: #1e293b !important;
+        font-weight: 900 !important;
+        fill: #0f172a !important;
       }
     }
   </style>
@@ -100,23 +86,24 @@
 
     const STORAGE_KEY = 'indeed_report_agency_accumulated_v2';
 
-    // カラー定数
+    // カラーパレット
     const COLORS = {
-      emerald: "#10b981",
-      blue: "#3b82f6",
-      slate: "#64748b",
-      indigo: "#6366f1",
-      amber: "#f59e0b",
-      red: "#ef4444",
-      white: "#ffffff"
+      emerald: "#059669",
+      blue: "#2563eb",
+      slate: "#475569",
+      indigo: "#4f46e5",
+      amber: "#d97706",
+      white: "#ffffff",
+      dark: "#0f172a"
     };
 
-    const Icon = ({ name, size = 20, className = "", color = "currentColor" }) => {
+    // 印刷時にも確実に描画されるアイコンコンポーネント
+    const Icon = ({ name, size = 20, color = "#000000", className = "" }) => {
       const paths = {
         trending: <path d="m22 7-8.5 8.5-5-5L2 17M16 7h6v6" />,
         users: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>,
         cursor: <><path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="m13 13 6 6"/></>,
-        eye: <><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-3 7-10 7-10-7Z"/><circle cx="12" cy="12" r="3"/></>,
+        eye: <><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></>,
         dashboard: <><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></>,
         file: <><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></>,
         alert: <><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></>,
@@ -130,7 +117,6 @@
       };
       return (
         <svg 
-          xmlns="http://www.w3.org/2000/svg" 
           width={size} 
           height={size} 
           viewBox="0 0 24 24" 
@@ -140,25 +126,25 @@
           strokeLinecap="round" 
           strokeLinejoin="round" 
           className={className}
-          style={{ printColorAdjust: 'exact', WebkitPrintColorAdjust: 'exact' }}
+          style={{ WebkitPrintColorAdjust: 'exact' }}
         >
           {paths[name] || null}
         </svg>
       );
     };
 
-    const StatCard = ({ title, value, unit, icon: IconName, iconColor, bgColor, subValue, isPrint = false }) => (
-      <div className={`bg-white p-4 rounded-2xl border border-gray-100 shadow-sm ${!isPrint ? 'hover:shadow-md transition-all duration-300' : ''}`}>
+    const StatCard = ({ title, value, unit, icon: IconName, bgColor, subValue, isPrint = false }) => (
+      <div className={`bg-white p-4 rounded-2xl border border-gray-200 shadow-sm ${!isPrint ? 'hover:shadow-md transition-all duration-300' : ''}`} style={{ WebkitPrintColorAdjust: 'exact' }}>
         <div className="flex justify-between items-start">
           <div className="flex-1">
-            <p className={`font-bold text-slate-500 uppercase tracking-wider ${isPrint ? 'text-[8pt] mb-1' : 'text-[10px] md:text-sm'}`}>{title}</p>
-            <h3 className={`font-bold text-slate-800 leading-tight ${isPrint ? 'text-[18pt]' : 'text-xl md:text-3xl mt-1'}`}>
+            <p className={`font-bold text-slate-500 uppercase tracking-wider mb-1 ${isPrint ? 'text-[8pt]' : 'text-[10px] md:text-sm'}`}>{title}</p>
+            <h3 className={`font-black text-slate-900 leading-tight ${isPrint ? 'text-[18pt]' : 'text-xl md:text-3xl'}`}>
               {value}<span className="text-xs md:text-lg ml-1 font-normal text-slate-400">{unit}</span>
             </h3>
             {subValue && <p className={`text-slate-400 font-bold ${isPrint ? 'text-[8pt] mt-1' : 'text-[10px] mt-1'}`}>{subValue}</p>}
           </div>
-          <div className={`${isPrint ? 'p-2' : 'p-2 md:p-3'} rounded-xl shadow-lg flex-shrink-0`} style={{backgroundColor: bgColor}}>
-            <Icon name={IconName} size={isPrint ? 20 : 24} color={iconColor} />
+          <div className="p-2 md:p-3 rounded-xl shadow-md flex-shrink-0" style={{backgroundColor: bgColor, WebkitPrintColorAdjust: 'exact'}}>
+            <Icon name={IconName} size={24} color={COLORS.white} />
           </div>
         </div>
       </div>
@@ -327,7 +313,7 @@
               <button onClick={clearAllData} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-400 hover:text-red-300 transition-colors font-semibold">
                 <Icon name="trash" size={14} color={COLORS.red} /> 蓄積データを全消去
               </button>
-              <div className="text-[10px] text-slate-500 uppercase tracking-widest font-bold px-3">Agency Edition v1.6.3</div>
+              <div className="text-[10px] text-slate-500 uppercase tracking-widest font-bold px-3">Agency Edition v1.7</div>
             </div>
           </aside>
 
@@ -365,54 +351,54 @@
             ) : (
               <div className="space-y-8 animate-fade-in">
                 
-                {/* 1枚目構成セクション */}
+                {/* 1枚目（サマリー + トレンド） */}
                 {(activeTab === 'dashboard' || activeTab === 'report') && (
                   <div className={activeTab === 'report' ? 'summary-print-page' : ''}>
                     {activeTab === 'report' && (
-                      <div className="print-only text-center mb-6 print-border-b-small border-emerald-600 pb-6">
+                      <div className="print-only text-center mb-6 border-b-4 border-emerald-600 pb-6">
                         <div className="flex justify-center items-center gap-4 mb-4">
                           <Icon name="trending" size={40} color={COLORS.emerald} />
-                          <h1 className="text-4xl font-bold text-slate-900 tracking-tight">Indeed 運用分析レポート</h1>
+                          <h1 className="text-4xl font-black text-slate-900 tracking-tighter">Indeed 運用分析レポート</h1>
                         </div>
                         <div className="flex justify-between items-center px-4">
-                          <p className="text-slate-500 font-bold uppercase tracking-[0.2em] text-sm">Agency Performance Insights</p>
-                          <p className="text-slate-700 font-bold text-lg">発行日: {new Date().toLocaleDateString('ja-JP', {year: 'numeric', month: 'long', day: 'numeric'})}</p>
+                          <p className="text-slate-500 font-bold uppercase tracking-[0.2em] text-sm">Agency Report Insights</p>
+                          <p className="text-slate-900 font-bold text-lg">発行日: {new Date().toLocaleDateString('ja-JP', {year: 'numeric', month: 'long', day: 'numeric'})}</p>
                         </div>
                       </div>
                     )}
 
-                    <div className="print-mb-medium mb-8">
-                      <h3 className="text-2xl font-bold text-slate-800 mb-6 print-mb-small flex items-center gap-3">
+                    <div className="mb-6">
+                      <h3 className="text-xl md:text-2xl font-black text-slate-800 mb-6 flex items-center gap-3">
                         <Icon name="star" size={24} color={COLORS.amber} />
                         運用累計実績サマリー
                       </h3>
-                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-                        <StatCard title="総表示回数" value={stats.totalImp.toLocaleString()} unit="回" icon="eye" iconColor={COLORS.white} bgColor={COLORS.slate} isPrint={activeTab === 'report'} />
-                        <StatCard title="平均クリック率" value={stats.avgCtr.toFixed(2)} unit="%" icon="cursor" iconColor={COLORS.white} bgColor={COLORS.blue} subValue={`${stats.totalClick.toLocaleString()} クリック`} isPrint={activeTab === 'report'} />
-                        <StatCard title="応募開始数" value={stats.totalStart.toLocaleString()} unit="件" icon="trending" iconColor={COLORS.white} bgColor={COLORS.indigo} subValue={`開始率: ${stats.avgAsr.toFixed(1)}%`} isPrint={activeTab === 'report'} />
-                        <StatCard title="応募完了数" value={stats.totalConv.toLocaleString()} unit="件" icon="users" iconColor={COLORS.white} bgColor={COLORS.emerald} subValue={`完了率: ${stats.avgCvr.toFixed(1)}%`} isPrint={activeTab === 'report'} />
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                        <StatCard title="総表示回数" value={stats.totalImp.toLocaleString()} unit="回" icon="eye" bgColor={COLORS.slate} isPrint={activeTab === 'report'} />
+                        <StatCard title="平均クリック率" value={stats.avgCtr.toFixed(2)} unit="%" icon="cursor" bgColor={COLORS.blue} subValue={`${stats.totalClick.toLocaleString()} クリック`} isPrint={activeTab === 'report'} />
+                        <StatCard title="応募開始数" value={stats.totalStart.toLocaleString()} unit="件" icon="trending" bgColor={COLORS.indigo} subValue={`開始率: ${stats.avgAsr.toFixed(1)}%`} isPrint={activeTab === 'report'} />
+                        <StatCard title="応募完了数" value={stats.totalConv.toLocaleString()} unit="件" icon="users" bgColor={COLORS.emerald} subValue={`完了率: ${stats.avgCvr.toFixed(1)}%`} isPrint={activeTab === 'report'} />
                       </div>
                     </div>
 
-                    <div className="bg-white p-6 md:p-8 print-p-small rounded-3xl border border-gray-100 shadow-sm mb-6 print-mb-small">
-                      <h3 className="text-2xl font-bold text-slate-800 mb-6 print-mb-small flex items-center gap-3">
-                        <Icon name="trending" size={24} color={COLORS.emerald} /> 月別報告トレンド推移
+                    <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm mb-4">
+                      <h3 className="text-lg md:text-xl font-black text-slate-800 mb-6 flex items-center gap-3">
+                        <Icon name="chart" size={24} color={COLORS.emerald} /> 月別報告トレンド推移
                       </h3>
-                      <div className="h-[300px] md:h-[350px] trend-chart-container">
+                      <div className="trend-chart-container h-[250px] md:h-[350px]">
                         <ResponsiveContainer width="100%" height="100%">
                           <ComposedChart data={reversedMonthlyData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                             <XAxis 
                               dataKey="month" 
-                              fontSize={12} 
-                              fontWeight={700} 
+                              fontSize={16} 
+                              fontWeight={900} 
                               axisLine={false} 
                               tickLine={false} 
                               dy={10}
                             />
                             <YAxis 
-                              fontSize={12} 
-                              fontWeight={700} 
+                              fontSize={14} 
+                              fontWeight={900} 
                               axisLine={false} 
                               tickLine={false} 
                             />
@@ -423,11 +409,11 @@
                               iconType="circle" 
                               verticalAlign="top" 
                               align="right" 
-                              wrapperStyle={{paddingBottom: '15px', fontSize: '12px', fontWeight: 'bold'}} 
+                              wrapperStyle={{paddingBottom: '20px', fontSize: '14px', fontWeight: 'bold'}} 
                             />
-                            <Bar dataKey="imp" name="表示回数" fill={COLORS.slate} radius={[4, 4, 0, 0]} barSize={35} />
+                            <Bar dataKey="imp" name="表示回数" fill={COLORS.slate} radius={[4, 4, 0, 0]} barSize={40} />
                             <Bar dataKey="clk" name="クリック数" fill={COLORS.blue} radius={[4, 4, 0, 0]} barSize={20} />
-                            <Line type="monotone" dataKey="conv" name="応募完了" stroke={COLORS.emerald} strokeWidth={4} dot={{ r: 6, fill: COLORS.emerald, strokeWidth: 2, stroke: "#fff" }} />
+                            <Line type="monotone" dataKey="conv" name="応募完了" stroke={COLORS.emerald} strokeWidth={5} dot={{ r: 7, fill: COLORS.emerald, strokeWidth: 3, stroke: "#fff" }} />
                           </ComposedChart>
                         </ResponsiveContainer>
                       </div>
@@ -436,7 +422,7 @@
                 )}
 
                 {activeTab === 'dashboard' ? (
-                  <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden card">
+                  <div className="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden card">
                     <div className="p-6 bg-slate-50 border-b flex justify-between items-center">
                       <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
                         <Icon name="briefcase" size={22} color={COLORS.emerald} />
@@ -445,7 +431,7 @@
                     </div>
                     <div className="overflow-x-auto">
                       <table className="w-full text-left text-sm">
-                        <thead className="bg-slate-50/50 text-slate-500 font-bold uppercase tracking-tighter">
+                        <thead className="bg-slate-50 text-slate-500 font-bold uppercase tracking-tighter">
                           <tr>
                             <th className="px-6 py-4">求人タイトル</th>
                             <th className="px-6 py-4 text-right">表示</th>
@@ -454,10 +440,10 @@
                             <th className="px-6 py-4 text-right text-emerald-600">完了</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
+                        <tbody className="divide-y divide-slate-100 font-medium">
                           {jobAggregate.map(([title, d]) => (
-                            <tr key={title} className="hover:bg-slate-50/80 transition-colors group">
-                              <td className="px-6 py-4 font-bold text-slate-700 max-w-md truncate group-hover:text-emerald-600 transition-colors">{title}</td>
+                            <tr key={title} className="hover:bg-slate-50 transition-colors group">
+                              <td className="px-6 py-4 font-bold text-slate-700 max-w-md truncate group-hover:text-emerald-600">{title}</td>
                               <td className="px-6 py-4 text-right text-slate-600">{d.imp.toLocaleString()}</td>
                               <td className="px-6 py-4 text-right text-slate-600">{d.clk.toLocaleString()}</td>
                               <td className="px-6 py-4 text-right text-indigo-500 font-bold">{d.start.toLocaleString()}</td>
@@ -471,33 +457,33 @@
                 ) : (
                   <div className="space-y-0">
                     {monthlyAnalysis.map(m => (
-                      <div key={m.month} className="report-card bg-white shadow-sm border border-slate-200 overflow-hidden mb-12 animate-fade-in">
-                        <div className="p-6 print-p-small bg-slate-50 border-b flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                      <div key={m.month} className="report-card bg-white shadow-sm border border-gray-200 overflow-hidden mb-12 animate-fade-in">
+                        <div className="p-6 bg-slate-50 border-b flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                           <div className="flex items-center gap-4">
-                            <h3 className="text-2xl font-bold text-slate-800">{m.month} 報告分詳細</h3>
+                            <h3 className="text-3xl font-black text-slate-900">{m.month} 報告分詳細</h3>
                           </div>
-                          <div className="grid grid-cols-2 gap-x-8 gap-y-2">
+                          <div className="grid grid-cols-2 gap-x-12">
                             <div className="text-right">
-                              <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-1">月間表示回数</p>
-                              <p className="text-lg font-bold text-slate-800">{m.imp.toLocaleString()}
+                              <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">月間表示回数</p>
+                              <p className="text-2xl font-black text-slate-900">{m.imp.toLocaleString()}
                                 {m.diffImp && <span className={`text-xs ml-2 font-bold ${parseFloat(m.diffImp) >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>({m.diffImp >= 0 ? '+' : ''}{m.diffImp}%)</span>}
                               </p>
                             </div>
                             <div className="text-right">
-                              <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-1">月間応募完了</p>
-                              <p className="text-lg font-bold text-emerald-600">{m.conv.toLocaleString()}
+                              <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">月間応募完了</p>
+                              <p className="text-2xl font-black text-emerald-600">{m.conv.toLocaleString()}
                                 {m.diffConv && <span className={`text-xs ml-2 font-bold ${parseFloat(m.diffConv) >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>({m.diffConv >= 0 ? '+' : ''}{m.diffConv}%)</span>}
                               </p>
                             </div>
                           </div>
                         </div>
 
-                        <div className="p-6 print-p-small border-b bg-white">
-                          <h4 className="text-lg font-bold text-slate-700 mb-6 print-mb-small flex items-center gap-3">
+                        <div className="p-6 border-b bg-white">
+                          <h4 className="text-lg font-black text-slate-800 mb-6 flex items-center gap-3">
                             <Icon name="chart" size={20} color={COLORS.emerald} />
-                            求人票別 パフォーマンス内訳（上位10件）
+                            求人別 パフォーマンス（上位10件）
                           </h4>
-                          <div className="h-[300px] trend-chart-container">
+                          <div className="job-chart-container h-[280px]">
                             <ResponsiveContainer width="100%" height="100%">
                               <BarChart data={m.jobArray.slice(0, 10)} layout="vertical" margin={{ left: 10, right: 30, top: 0, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
@@ -505,19 +491,19 @@
                                 <YAxis 
                                   dataKey="title" 
                                   type="category" 
-                                  fontSize={10} 
-                                  fontWeight={700}
-                                  width={160} 
+                                  fontSize={13} 
+                                  fontWeight={900}
+                                  width={180} 
                                   tickFormatter={(val) => val.length > 25 ? val.substring(0, 25) + '...' : val} 
                                   axisLine={false} 
                                   tickLine={false} 
-                                  stroke="#1e293b" 
+                                  stroke={COLORS.dark} 
                                 />
                                 <Tooltip 
                                   cursor={{fill: '#f8fafc'}} 
-                                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px rgba(0,0,0,0.1)', fontSize: '10px' }} 
+                                  contentStyle={{ borderRadius: '10px', border: 'none', boxShadow: '0 10px 15px rgba(0,0,0,0.1)', fontSize: '12px' }} 
                                 />
-                                <Legend iconType="circle" wrapperStyle={{paddingTop: '15px', fontSize: '10px', fontWeight: 'bold'}} />
+                                <Legend iconType="circle" wrapperStyle={{paddingTop: '15px', fontSize: '12px', fontWeight: 'bold'}} />
                                 <Bar dataKey="clk" name="クリック数" fill={COLORS.blue} radius={[0, 4, 4, 0]} barSize={15} />
                                 <Bar dataKey="conv" name="応募完了" fill={COLORS.emerald} radius={[0, 4, 4, 0]} barSize={15} />
                               </BarChart>
@@ -527,7 +513,7 @@
 
                         <div className="overflow-x-auto">
                           <table className="w-full text-left">
-                            <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-xs tracking-widest border-b">
+                            <thead className="bg-slate-50 text-slate-600 font-black uppercase text-[9px] tracking-widest border-b">
                               <tr>
                                 <th className="px-6 py-4">求人タイトル</th>
                                 <th className="px-4 py-4 text-right">表示</th>
@@ -537,20 +523,20 @@
                                 <th className="px-4 py-4 text-center no-print w-10"></th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100 text-sm font-medium">
+                            <tbody className="divide-y divide-slate-100 text-[10pt] font-bold">
                               {m.jobArray.map((data) => (
-                                <tr key={data.id || data.title} className="hover:bg-slate-50/80 transition-colors group">
-                                  <td className="px-6 py-3 font-bold text-slate-700 max-w-xs md:max-w-md truncate">{data.title}</td>
+                                <tr key={data.id || data.title} className="hover:bg-slate-50 transition-colors">
+                                  <td className="px-6 py-3 text-slate-900 max-w-xs md:max-w-md truncate">{data.title}</td>
                                   <td className="px-4 py-3 text-right text-slate-600">{data.imp.toLocaleString()}</td>
                                   <td className="px-4 py-3 text-right text-slate-600">{data.clk.toLocaleString()}</td>
-                                  <td className="px-4 py-3 text-right font-bold text-blue-600 bg-blue-50/30">{data.start.toLocaleString()}</td>
-                                  <td className="px-4 py-3 text-right font-bold text-emerald-600 bg-emerald-50/30 border-r">{data.conv.toLocaleString()}</td>
+                                  <td className="px-4 py-3 text-right text-blue-600">{data.start.toLocaleString()}</td>
+                                  <td className="px-4 py-3 text-right text-emerald-600 border-r">{data.conv.toLocaleString()}</td>
                                   <td className="px-4 py-3 text-center no-print">
                                     <button 
                                       onClick={() => deleteJobRecord(data.title, m.month)}
-                                      className="p-2 text-slate-300 hover:text-red-500 transition-colors rounded-full hover:bg-red-50"
+                                      className="p-2 text-slate-300 hover:text-red-500 rounded-full"
                                     >
-                                      <Icon name="trash" size={16} color={COLORS.slate} />
+                                      <Icon name="trash" size={14} color={COLORS.slate} />
                                     </button>
                                   </td>
                                 </tr>
